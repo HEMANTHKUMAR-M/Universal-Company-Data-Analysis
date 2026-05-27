@@ -1,25 +1,32 @@
 import React from 'react';
-import { Menu, X, BarChart3, TrendingUp, Users, Package, Globe, FileText, Settings, Home, LogIn, UserPlus } from 'lucide-react';
+import { Menu, X, BarChart3, TrendingUp, Users, Package, Globe, FileText, Settings, Home, LogIn, UserPlus, Lightbulb, UploadCloud } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   currentPage: string;
   setCurrentPage: (page: string) => void;
+  isAuthenticated: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, currentPage, setCurrentPage }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, currentPage, setCurrentPage, isAuthenticated }) => {
   const menuItems = [
+    { id: 'upload', label: 'Upload Dataset', icon: UploadCloud },
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'sales', label: 'Sales Analytics', icon: TrendingUp },
     { id: 'profit', label: 'Profit Analytics', icon: BarChart3 },
     { id: 'customers', label: 'Customer Insights', icon: Users },
     { id: 'products', label: 'Product Performance', icon: Package },
     { id: 'regions', label: 'Regional Analysis', icon: Globe },
+    { id: 'insights', label: 'Insights & Reports', icon: Lightbulb },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'register', label: 'Register', icon: UserPlus },
-    { id: 'login', label: 'Login', icon: LogIn },
+    ...(!isAuthenticated
+      ? [
+          { id: 'register', label: 'Register', icon: UserPlus },
+          { id: 'login', label: 'Login', icon: LogIn },
+        ]
+      : []),
   ];
 
   return (

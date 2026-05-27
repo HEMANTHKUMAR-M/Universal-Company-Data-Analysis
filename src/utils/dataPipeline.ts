@@ -3,7 +3,22 @@
  * Handles: Collection → Storage → Cleaning → Processing → Analytics → Visualization → Insights
  */
 
-import { OrderData } from '../data/sampleData';
+// Lightweight OrderData type used across the pipeline
+export interface OrderData {
+  orderId?: string;
+  date?: string;
+  customer?: string;
+  customerName?: string;
+  region?: string;
+  product?: string;
+  category?: string;
+  quantity?: number;
+  sales?: number;
+  profit?: number;
+  discount?: number;
+  customerType?: string;
+  salesChannel?: string;
+}
 
 // ==================== STEP 1: DATA COLLECTION ====================
 
@@ -39,7 +54,6 @@ export interface DataValidation {
 export const validateOrderData = (order: any): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
-  if (!order.orderId || typeof order.orderId !== 'string') errors.push('Invalid orderId');
   if (!order.date || isNaN(Date.parse(order.date))) errors.push('Invalid date format');
   if (!order.sales || order.sales < 0) errors.push('Invalid sales value');
   if (!order.profit || order.profit < 0) errors.push('Invalid profit value');
@@ -47,6 +61,7 @@ export const validateOrderData = (order: any): { isValid: boolean; errors: strin
   if (!order.region) errors.push('Missing region');
   if (!order.product) errors.push('Missing product');
   if (!order.category) errors.push('Missing category');
+  if (!order.customer && !order.customerName) errors.push('Missing customer');
   if (order.discount < 0 || order.discount > 100) errors.push('Discount out of range (0-100)');
 
   return { isValid: errors.length === 0, errors };
@@ -59,7 +74,8 @@ export const cleanOrderData = (order: OrderData): OrderData => {
     profit: Math.max(0, Number(order.profit) || 0),
     quantity: Math.max(0, Number(order.quantity) || 0),
     discount: Math.min(100, Math.max(0, Number(order.discount) || 0)),
-    date: order.date.substring(0, 10), // Normalize date format
+    date: order.date ? String(order.date).substring(0, 10) : '',
+    customer: order.customer?.trim() || order.customerName?.trim() || 'Unknown',
     region: order.region?.trim() || 'Unknown',
     product: order.product?.trim() || 'Unknown',
     category: order.category?.trim() || 'Other',
@@ -116,9 +132,9 @@ export const processData = (orders: OrderData[]): ProcessedData => {
     end: dates[dates.length - 1] || new Date().toISOString().split('T')[0],
   };
 
-  const regions = [...new Set(cleanedRecords.map(o => o.region))].sort();
-  const categories = [...new Set(cleanedRecords.map(o => o.category))].sort();
-  const products = [...new Set(cleanedRecords.map(o => o.product))].sort();
+  const regions = [...new Set(cleanedRecords.map((o) => o.region || 'Unknown'))].sort();
+  const categories = [...new Set(cleanedRecords.map((o) => o.category || 'Unknown'))].sort();
+  const products = [...new Set(cleanedRecords.map((o) => o.product || 'Unknown'))].sort();
   const customerTypes = [...new Set(cleanedRecords.map(o => o.customerType || 'Unknown'))].sort();
   const salesChannels = [...new Set(cleanedRecords.map(o => o.salesChannel || 'Unknown'))].sort();
 
@@ -155,39 +171,43 @@ export interface AdvancedMetrics {
 }
 
 export const calculateAdvancedMetrics = (orders: OrderData[]): AdvancedMetrics => {
-  const totalSales = orders.reduce((sum, o) => sum + o.sales, 0);
-  const totalProfit = orders.reduce((sum, o) => sum + o.profit, 0);
-  const totalQuantitySold = orders.reduce((sum, o) => sum + o.quantity, 0);
+  const totalSales = orders.reduce((sum, o) => sum + (o.sales ?? 0), 0);
+  const totalProfit = orders.reduce((sum, o) => sum + (o.profit ?? 0), 0);
+  const totalQuantitySold = orders.reduce((sum, o) => sum + (o.quantity ?? 0), 0);
   const totalOrders = orders.length;
-  const totalDiscount = orders.reduce((sum, o) => sum + o.discount, 0);
+  const totalDiscount = orders.reduce((sum, o) => sum + (o.discount ?? 0), 0);
 
   // Regional analysis
   const regionMap: Record<string, number> = {};
-  orders.forEach(o => {
-    regionMap[o.region] = (regionMap[o.region] || 0) + o.sales;
+  orders.forEach((o) => {
+    const regionKey = o.region || 'Unknown';
+    regionMap[regionKey] = (regionMap[regionKey] || 0) + (o.sales ?? 0);
   });
   const topRegion = Object.entries(regionMap).sort((a, b) => b[1] - a[1])[0] || ['Unknown', 0];
 
   // Product analysis
   const productMap: Record<string, number> = {};
-  orders.forEach(o => {
-    productMap[o.product] = (productMap[o.product] || 0) + o.sales;
+  orders.forEach((o) => {
+    const productKey = o.product || 'Unknown';
+    productMap[productKey] = (productMap[productKey] || 0) + (o.sales ?? 0);
   });
   const topProduct = Object.entries(productMap).sort((a, b) => b[1] - a[1])[0] || ['Unknown', 0];
 
   // Category analysis
   const categoryMap: Record<string, number> = {};
-  orders.forEach(o => {
-    categoryMap[o.category] = (categoryMap[o.category] || 0) + o.sales;
+  orders.forEach((o) => {
+    const categoryKey = o.category || 'Unknown';
+    categoryMap[categoryKey] = (categoryMap[categoryKey] || 0) + (o.sales ?? 0);
   });
   const topCategory = Object.entries(categoryMap).sort((a, b) => b[1] - a[1])[0] || ['Unknown', 0];
 
   // Growth and retention
-  const months = Array.from(new Set(orders.map(o => o.date.substring(0, 7)))).sort();
+  const months = Array.from(new Set(orders.map((o) => (o.date || '').substring(0, 7)).filter(Boolean))).sort();
   const growthTrend = months.length > 1 ? ((Math.random() * 40) - 10) : 0; // Placeholder calculation
-  const uniqueCustomers = new Set(orders.map(o => o.customerName)).size;
+  const uniqueCustomers = new Set(orders.map(o => o.customer || o.customerName || 'Unknown')).size;
   const repeatOrders = orders.reduce((acc, o, i, arr) => {
-    const prev = arr.slice(0, i).some(p => p.customerName === o.customerName);
+    const customerKey = o.customer || o.customerName || 'Unknown';
+    const prev = arr.slice(0, i).some(p => (p.customer || p.customerName || 'Unknown') === customerKey);
     return prev ? acc + 1 : acc;
   }, 0);
 
@@ -221,7 +241,7 @@ export interface BusinessInsight {
   recommendation?: string;
 }
 
-export const generateInsights = (metrics: AdvancedMetrics, orders: OrderData[]): BusinessInsight[] => {
+export const generateInsights = (metrics: AdvancedMetrics): BusinessInsight[] => {
   const insights: BusinessInsight[] = [];
 
   // Revenue insight
@@ -330,7 +350,7 @@ export interface AnalyticsReport {
 
 export const generateReport = (orders: OrderData[]): AnalyticsReport => {
   const metrics = calculateAdvancedMetrics(orders);
-  const insights = generateInsights(metrics, orders);
+  const insights = generateInsights(metrics);
   const dates = orders.map(o => o.date).sort();
   
   const periodStart = dates[0] || new Date().toISOString().split('T')[0];
@@ -394,7 +414,7 @@ export const executePipeline = async (orders: OrderData[]) => {
   const metrics = calculateAdvancedMetrics(processed.cleanedRecords);
   
   // Step 4: Generate insights
-  const insights = generateInsights(metrics, processed.cleanedRecords);
+  const insights = generateInsights(metrics);
   
   // Step 5: Create report
   const report = generateReport(processed.cleanedRecords);

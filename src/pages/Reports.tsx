@@ -1,23 +1,73 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Download, FileText } from 'lucide-react';
-import { calculateKPIs, getMonthlyData, getProductData, getRegionalData, getCategoryData, ordersData, filterOrders } from '../data/sampleData';
+import { useDataset } from '../context/DataContext';
 import Chart from '../components/Chart';
-import { useFilters } from '../context/FilterContext';
 import { downloadCSV, exportPDF } from '../utils/helpers';
 import EmptyState from '../components/EmptyState';
 
 const Reports: React.FC = () => {
-  const { filters } = useFilters();
-  const kpis = calculateKPIs(filters);
-  const monthlyData = getMonthlyData(filters);
-  const productData = getProductData(filters);
-  const regionalData = getRegionalData(filters);
-  const categoryData = getCategoryData(filters);
-  const filteredOrders = filterOrders(filters);
+  const { filteredRecords, cleanedRecords, metrics, hasData, loading } = useDataset();
+  if (!hasData && !loading) return <EmptyState title="Upload your company dataset to generate analytics dashboard" description="Upload a dataset to enable this view" />;
+
+  const monthlyData = useMemo(() => {
+    if (!hasData) return [];
+    const months: Record<string, { month: string; sales: number; profit: number; order: number }> = {};
+    filteredRecords.forEach((row: Record<string, any>) => {
+      const dateValue = row.date || row.orderDate || row.transactionDate;
+      const date = dateValue ? new Date(String(dateValue)) : null;
+      if (!date || Number.isNaN(date.getTime())) return;
+      const monthLabel = date.toLocaleString('default', { month: 'short' });
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      if (!months[key]) months[key] = { month: `${monthLabel} ${date.getFullYear()}`, sales: 0, profit: 0, order: date.getTime() };
+      months[key].sales += Number(row.revenue || row.sales || 0);
+      months[key].profit += Number(row.profit || 0);
+    });
+    return Object.values(months).sort((a, b) => a.order - b.order);
+  }, [filteredRecords, hasData]);
+
+  const kpis = metrics || {
+    recordCount: 0,
+    dateRange: 'N/A',
+    totalRevenue: 0,
+    totalProfit: 0,
+    totalSales: 0,
+    totalQuantity: 0,
+    totalExpense: 0,
+    uniqueCustomers: 0,
+    averageOrderValue: 0,
+    profitMargin: 0,
+    topProduct: '',
+    topRegion: '',
+    topCategory: '',
+    topDepartment: '',
+    topEmployee: '',
+    paymentModeBreakdown: {},
+  } as any;
+  const productData = Object.values((filteredRecords || []).reduce((acc: any, row: any) => {
+    const key = row.product || 'Unknown';
+    acc[key] = acc[key] || { product: key, sales: 0, profit: 0 };
+    acc[key].sales += Number(row.revenue || row.sales || 0);
+    acc[key].profit += Number(row.profit || 0);
+    return acc;
+  }, {})).sort((a:any,b:any)=>b.sales-a.sales);
+  const regionalData = Object.values((filteredRecords || []).reduce((acc: any, row: any) => {
+    const key = row.region || 'Unknown';
+    acc[key] = acc[key] || { region: key, sales: 0 };
+    acc[key].sales += Number(row.revenue || row.sales || 0);
+    return acc;
+  }, {})).sort((a:any,b:any)=>b.sales-a.sales);
+  const categoryData = Object.values((filteredRecords || []).reduce((acc: any, row: any) => {
+    const key = row.category || 'Unknown';
+    acc[key] = acc[key] || { category: key, sales: 0 };
+    acc[key].sales += Number(row.revenue || row.sales || 0);
+    return acc;
+  }, {})).sort((a:any,b:any)=>b.sales-a.sales);
+
+  const filteredOrders = filteredRecords || [];
 
   // Summarized insights
-  const bestRegion = regionalData && regionalData.length ? [...regionalData].sort((a,b)=> b.sales - a.sales)[0] : null;
-  const topProduct = productData && productData.length ? productData[0] : null;
+  const bestRegion = regionalData && regionalData.length ? [...(regionalData as any[])].sort((a:any,b:any)=> b.sales - a.sales)[0] as any : null;
+  const topProduct = productData && productData.length ? (productData[0] as any) : null;
   const categoryProfitMap: Record<string, { sales:number; profit:number }> = {};
   filteredOrders.forEach(o => {
     if (!categoryProfitMap[o.category]) categoryProfitMap[o.category] = { sales:0, profit:0 };
@@ -38,9 +88,10 @@ const Reports: React.FC = () => {
   // Customer purchase patterns
   const customerMap: Record<string, { sales:number; orders:number }> = {};
   filteredOrders.forEach(o => {
-    if (!customerMap[o.customerName]) customerMap[o.customerName] = { sales:0, orders:0 };
-    customerMap[o.customerName].sales += o.sales;
-    customerMap[o.customerName].orders += 1;
+    const customerKey = o.customer || 'Unknown';
+    if (!customerMap[customerKey]) customerMap[customerKey] = { sales:0, orders:0 };
+    customerMap[customerKey].sales += o.sales;
+    customerMap[customerKey].orders += 1;
   });
   const topCustomers = Object.entries(customerMap)
     .map(([name, stats]) => ({ name, avgOrder: stats.sales / stats.orders, ...stats }))
@@ -51,9 +102,10 @@ const Reports: React.FC = () => {
     downloadCSV(data, filename);
   };
 
-  const totalRevenue = kpis.totalSales;
-  const totalProfit = kpis.totalProfit;
-  const profitMargin = kpis.profitMargin;
+  const totalRevenue = kpis.totalRevenue || kpis.totalSales || 0;
+  const totalProfit = kpis.totalProfit || 0;
+  const profitMargin = kpis.profitMargin || 0;
+  const growthPercentage = (kpis as any).growthPercentage || 0;
 
   return (
     <div className="fade-in">
@@ -114,7 +166,7 @@ const Reports: React.FC = () => {
           </div>
           <div className="p-4 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-20 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-400">Total Orders</p>
-            <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{kpis.totalOrders}</p>
+            <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{kpis.recordCount}</p>
           </div>
         </div>
 
@@ -123,15 +175,15 @@ const Reports: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-gray-600 dark:text-gray-400">Total Customers</p>
-              <p className="font-bold text-gray-900 dark:text-white mt-1">{kpis.totalCustomers}</p>
+              <p className="font-bold text-gray-900 dark:text-white mt-1">{kpis.uniqueCustomers}</p>
             </div>
             <div>
               <p className="text-gray-600 dark:text-gray-400">Avg Order Value</p>
-              <p className="font-bold text-gray-900 dark:text-white mt-1">${kpis.avgOrderValue}</p>
+              <p className="font-bold text-gray-900 dark:text-white mt-1">${kpis.averageOrderValue}</p>
             </div>
             <div>
               <p className="text-gray-600 dark:text-gray-400">YoY Growth</p>
-              <p className="font-bold text-gray-900 dark:text-white mt-1">{kpis.growthPercentage}%</p>
+              <p className="font-bold text-gray-900 dark:text-white mt-1">{growthPercentage}%</p>
             </div>
             <div>
               <p className="text-gray-600 dark:text-gray-400">Regions</p>
@@ -250,10 +302,10 @@ const Reports: React.FC = () => {
           </div>
           <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">Last Updated: Today</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ordersData.length} orders</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{(cleanedRecords || []).length} orders</p>
           </div>
           <button
-            onClick={() => handleExportCSV(ordersData, 'complete_data')}
+            onClick={() => handleExportCSV(cleanedRecords || [], 'complete_data')}
             className="w-full btn-primary flex items-center justify-center gap-2"
           >
             <Download size={16} />
@@ -267,6 +319,7 @@ const Reports: React.FC = () => {
         <Chart
           data={monthlyData}
           title="Monthly Sales Trend"
+          description="Track revenue month-over-month and quickly identify seasonal patterns."
           type="line"
           dataKey={['sales']}
           xDataKey="month"
@@ -275,28 +328,33 @@ const Reports: React.FC = () => {
 
         <Chart
           data={monthlyData}
-          title="Profit by Month"
+          title="Monthly Profit Trend"
+          description="Compare profit performance with a clean and responsive bar view."
           type="bar"
-          dataKey={'profit'}
+          dataKey="profit"
           xDataKey="month"
           height={320}
+          highlightExtremes
         />
 
         <Chart
           data={regionalData}
-          title="Region-wise Sales"
+          title="Region-wise Sales Share"
+          description="A donut chart showing revenue distribution by region."
           type="pie"
-          dataKey={'sales'}
-          xDataKey="region"
+          dataKey="sales"
           height={320}
+          isDonut
         />
 
         <Chart
           data={categoryData}
-          title="Category-wise Revenue"
+          title="Category Revenue Breakdown"
+          description="Visualize which categories contribute the most to revenue."
           type="pie"
-          dataKey={'percentage'}
+          dataKey="sales"
           height={320}
+          isDonut
         />
       </div>
 
@@ -330,13 +388,13 @@ const Reports: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.slice(-15).reverse().map((order) => (
-                <tr key={order.orderId} className="table-row">
-                  <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">{order.orderId}</td>
-                  <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">{order.date}</td>
-                  <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">{order.customerName}</td>
-                  <td className="py-3 px-4 text-sm font-semibold text-green-600 dark:text-green-400">${order.sales}</td>
-                  <td className="py-3 px-4 text-sm font-semibold text-blue-600 dark:text-blue-400">${order.profit}</td>
+              {filteredOrders.slice(-15).reverse().map((order, index) => (
+                <tr key={index} className="table-row">
+                  <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">{order.date || `Record ${index + 1}`}</td>
+                  <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">{order.customer || 'N/A'}</td>
+                  <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">{order.product || 'N/A'}</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-green-600 dark:text-green-400">${order.sales ?? 0}</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-blue-600 dark:text-blue-400">${order.profit ?? 0}</td>
                 </tr>
               ))}
             </tbody>

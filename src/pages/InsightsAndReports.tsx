@@ -1,42 +1,26 @@
 import React, { useMemo, useState } from 'react';
-import { BarChart3, TrendingUp, AlertCircle, CheckCircle, Download, Filter } from 'lucide-react';
-import { ordersData } from '../data/sampleData';
-import { 
-  generateReport, 
-  calculateAdvancedMetrics, 
+import { BarChart3, AlertCircle, CheckCircle, Download } from 'lucide-react';
+import { useDataset } from '../context/DataContext';
+import {
+  generateReport,
+  calculateAdvancedMetrics,
   generateInsights,
-  AdvancedMetrics,
-  BusinessInsight 
 } from '../utils/dataPipeline';
-import { useFilters } from '../context/FilterContext';
-import Chart from '../components/Chart';
+import type { AdvancedMetrics, BusinessInsight } from '../utils/dataPipeline';
 import { motion } from 'framer-motion';
+import EmptyState from '../components/EmptyState';
 
 const InsightsAndReports: React.FC = () => {
-  const { filters } = useFilters();
   const [selectedInsight, setSelectedInsight] = useState<BusinessInsight | null>(null);
 
-  // Apply filters and generate metrics
-  const filteredData = useMemo(() => {
-    let data = [...ordersData];
-    if (filters?.dateRange?.start) {
-      data = data.filter(o => o.date >= filters.dateRange.start!);
-    }
-    if (filters?.dateRange?.end) {
-      data = data.filter(o => o.date <= filters.dateRange.end!);
-    }
-    if (filters?.region && filters.region !== 'all') {
-      data = data.filter(o => o.region === filters.region);
-    }
-    if (filters?.category && filters.category !== 'all') {
-      data = data.filter(o => o.category === filters.category);
-    }
-    return data;
-  }, [filters]);
+  const { filteredRecords, hasData, loading } = useDataset();
+  if (!hasData && !loading) return <EmptyState title="Upload your company dataset to generate analytics dashboard" description="Upload a dataset to enable this view" />;
 
-  const metrics: AdvancedMetrics = useMemo(() => calculateAdvancedMetrics(filteredData), [filteredData]);
-  const insights: BusinessInsight[] = useMemo(() => generateInsights(metrics, filteredData), [metrics, filteredData]);
-  const report = useMemo(() => generateReport(filteredData), [filteredData]);
+  const filteredData = useMemo(() => filteredRecords || [], [filteredRecords]);
+
+  const metrics: AdvancedMetrics = useMemo(() => calculateAdvancedMetrics(filteredData as any), [filteredData]);
+  const insights: BusinessInsight[] = useMemo(() => generateInsights(metrics), [metrics]);
+  const report = useMemo(() => generateReport(filteredData as any), [filteredData]);
 
   const handleExportJSON = () => {
     const element = document.createElement('a');

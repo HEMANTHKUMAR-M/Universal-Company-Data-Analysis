@@ -1,16 +1,42 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUp } from 'lucide-react';
 import KPICard from '../components/KPICard';
 import Chart from '../components/Chart';
 import FilterBar from '../components/FilterBar';
-import { ordersData, getMonthlyData } from '../data/sampleData';
+import EmptyDataState from '../components/EmptyDataState';
+import { useDataset } from '../context/DataContext';
 
 const ProfitAnalytics: React.FC = () => {
-  const monthlyData = getMonthlyData();
-  const totalProfit = ordersData.reduce((sum, order) => sum + order.profit, 0);
-  const avgProfit = Math.round(totalProfit / ordersData.length);
-  const totalSales = ordersData.reduce((sum, order) => sum + order.sales, 0);
-  const profitMargin = ((totalProfit / totalSales) * 100).toFixed(2);
+  const { filteredRecords, hasData, metrics } = useDataset();
+
+  const monthlyData = useMemo(() => {
+    if (!hasData) return [];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const map: Record<string, { month: string; profit: number; sales: number; orders: number }> = {};
+    filteredRecords.forEach((record: Record<string, any>) => {
+      const dateStr = String(record.date || '');
+      if (!dateStr) return;
+      const date = new Date(dateStr);
+      const m = months[date.getMonth()];
+      if (!map[m]) map[m] = { month: m, profit: 0, sales: 0, orders: 0 };
+      map[m].profit += Number(record.profit || 0);
+      map[m].sales += Number(record.sales || 0);
+      map[m].orders += 1;
+    });
+    return Object.values(map).sort((a, b) => months.indexOf(a.month) - months.indexOf(b.month));
+  }, [filteredRecords, hasData]);
+
+  if (!hasData) {
+    return (
+      <div className="fade-in">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Profit Analytics</h1>
+          <p className="text-gray-600 dark:text-gray-400">Comprehensive profit analysis and insights</p>
+        </div>
+        <EmptyDataState />
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in">
@@ -23,7 +49,7 @@ const ProfitAnalytics: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <KPICard
           title="Total Profit"
-          value={`$${(totalProfit / 1000).toFixed(1)}K`}
+          value={`$${(((metrics?.totalProfit ?? 0) / 1000).toFixed(1))}K`}
           icon={<TrendingUp size={24} />}
           bgColor="from-green-500 to-green-600"
           change={25}
@@ -31,7 +57,7 @@ const ProfitAnalytics: React.FC = () => {
         />
         <KPICard
           title="Average Profit"
-          value={`$${avgProfit}`}
+          value={`$${Math.round(((metrics?.totalProfit ?? 0) / Math.max((metrics?.recordCount ?? 1),1)))}`}
           icon={<TrendingUp size={24} />}
           bgColor="from-blue-500 to-blue-600"
           change={15}
@@ -39,13 +65,13 @@ const ProfitAnalytics: React.FC = () => {
         />
         <KPICard
           title="Profit Margin"
-          value={`${profitMargin}%`}
+          value={`${metrics?.profitMargin ?? 0}%`}
           icon={<TrendingUp size={24} />}
           bgColor="from-purple-500 to-purple-600"
         />
         <KPICard
           title="Total Sales"
-          value={`$${(totalSales / 1000).toFixed(1)}K`}
+          value={`$${(((metrics?.totalSales ?? 0) / 1000).toFixed(1))}K`}
           icon={<TrendingUp size={24} />}
           bgColor="from-orange-500 to-orange-600"
         />
@@ -59,17 +85,21 @@ const ProfitAnalytics: React.FC = () => {
         <Chart
           data={monthlyData}
           title="Monthly Profit Trend"
-          type="line"
+          description="Smooth area chart showing profit progression across the selected period."
+          type="area"
           dataKey="profit"
+          xDataKey="month"
           height={350}
         />
         <Chart
           data={monthlyData}
-          title="Profit vs Sales Comparison"
+          title="Profit vs Sales"
+          description="Compare profit and total sales across each month to identify seasonal performance shifts."
           type="bar"
           dataKey={['profit', 'sales']}
           xDataKey="month"
           height={350}
+          highlightExtremes
         />
       </div>
 

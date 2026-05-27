@@ -3,12 +3,31 @@ import { Package, TrendingUp } from 'lucide-react';
 import KPICard from '../components/KPICard';
 import Chart from '../components/Chart';
 import FilterBar from '../components/FilterBar';
-import { getProductData } from '../data/sampleData';
+import { useDataset } from '../context/DataContext';
+import EmptyState from '../components/EmptyState';
 
 const ProductPerformance: React.FC = () => {
-  const productData = getProductData();
-  const topProduct = productData[0];
-  const avgProductSales = Math.round(productData.reduce((sum, p) => sum + p.sales, 0) / productData.length);
+  const { filteredRecords, hasData, loading } = useDataset();
+  if (!hasData && !loading) return <EmptyState title="Upload your company dataset to generate analytics dashboard" description="Upload a dataset to enable this view" />;
+
+  const productMap: Record<string, { product: string; category: string; sales: number; profit: number; quantity: number }> = {};
+  filteredRecords.forEach((row) => {
+    const name = String(row.product || 'Unknown');
+    const category = String(row.category || 'Other');
+    productMap[name] = productMap[name] || { product: name, category, sales: 0, profit: 0, quantity: 0 };
+    productMap[name].sales += Number(row.revenue || row.sales || 0);
+    productMap[name].profit += Number(row.profit || 0);
+    productMap[name].quantity += Number(row.quantity || 0);
+  });
+  const productData = Object.values(productMap).sort((a, b) => b.sales - a.sales);
+  const categoryMap: Record<string, { category: string; sales: number }> = {};
+  productData.forEach((product) => {
+    categoryMap[product.category] = categoryMap[product.category] || { category: product.category, sales: 0 };
+    categoryMap[product.category].sales += product.sales;
+  });
+  const categoryData = Object.values(categoryMap).sort((a, b) => b.sales - a.sales);
+  const topProduct = productData[0] || { product: '—', sales: 0 };
+  const avgProductSales = productData.length ? Math.round(productData.reduce((sum, p) => sum + p.sales, 0) / productData.length) : 0;
 
   return (
     <div className="fade-in">
@@ -53,12 +72,28 @@ const ProductPerformance: React.FC = () => {
       <div className="card mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Product Sales Performance</h3>
         <Chart
-          data={productData}
-          title=""
+          data={productData.slice(0, 12)}
+          title="Top Products by Sales"
+          description="Compare the highest revenue-generating products in your catalog."
           type="bar"
           dataKey="sales"
           xDataKey="product"
           height={400}
+          highlightExtremes
+        />
+      </div>
+
+      {/* Category Revenue Chart */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Category Revenue Share</h3>
+        <Chart
+          data={categoryData}
+          title="Category Revenue Breakdown"
+          description="See which product categories contribute most to revenue."
+          type="pie"
+          dataKey="sales"
+          height={360}
+          isDonut
         />
       </div>
 
@@ -96,21 +131,13 @@ const ProductPerformance: React.FC = () => {
 
       {/* Category Performance */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        <div className="card text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Electronics</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">6 products</p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">$165.3K sales</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Furniture</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">2 products</p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">$21.7K sales</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Accessories</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">2 products</p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">$32.1K sales</p>
-        </div>
+        {productData.slice(0, 3).map((p, idx) => (
+          <div key={p.product || idx} className="card text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{p.product}</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Math.max(1, Math.round(p.sales / 1000))} products</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">${p.sales.toLocaleString()} sales</p>
+          </div>
+        ))}
       </div>
     </div>
   );

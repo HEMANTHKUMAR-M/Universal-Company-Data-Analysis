@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/DashboardFallback';
+import UniversalAnalytics from './pages/UniversalAnalytics';
 import SalesAnalytics from './pages/SalesAnalytics';
 import ProfitAnalytics from './pages/ProfitAnalytics';
 import CustomerInsights from './pages/CustomerInsights';
@@ -9,12 +9,14 @@ import ProductPerformance from './pages/ProductPerformance';
 import RegionalAnalysis from './pages/RegionalAnalysis';
 import Reports from './pages/Reports';
 import InsightsAndReports from './pages/InsightsAndReports';
+import UploadDataset from './pages/UploadDataset';
 import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Starter from './pages/Starter';
 import { useAuth } from './context/AuthContext';
+import { DataProvider } from './context/DataContext';
 import './styles/index.css';
-import ProtectedRoute from './components/ProtectedRoute';
 
 interface PageComponent {
   component: React.ComponentType<any>;
@@ -22,7 +24,7 @@ interface PageComponent {
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('starter');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
@@ -42,16 +44,35 @@ function App() {
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  // Redirect to login if not authenticated
+  // Keep unauthenticated users on the starter page until they choose login/register
   useEffect(() => {
-    if (!authLoading && !user) {
-      setCurrentPage('login');
+    if (!authLoading && !user && currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'starter') {
+      setCurrentPage('starter');
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, currentPage]);
+
+  // If a logged-in user is on auth pages, continue to upload dataset flow
+  useEffect(() => {
+    if (!authLoading && user && (currentPage === 'login' || currentPage === 'register')) {
+      setCurrentPage('upload');
+    }
+  }, [user, authLoading, currentPage]);
+
+  // Listen for programmatic navigation events from pages/components
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<string>;
+      if (ev?.detail) setCurrentPage(ev.detail);
+    };
+    window.addEventListener('navigateTo', handler as EventListener);
+    return () => window.removeEventListener('navigateTo', handler as EventListener);
+  }, []);
 
   // Page mapping
   const pages: Record<string, PageComponent> = {
-    dashboard: { component: Dashboard },
+    starter: { component: Starter },
+    dashboard: { component: UniversalAnalytics },
+    upload: { component: UploadDataset },
     sales: { component: SalesAnalytics },
     profit: { component: ProfitAnalytics },
     customers: { component: CustomerInsights },
@@ -80,8 +101,8 @@ function App() {
     );
   }
 
-  // Show auth pages (login/register) without sidebar
-  if (!user && (currentPage === 'login' || currentPage === 'register')) {
+  // Show auth and starter pages without sidebar when the user is not authenticated
+  if (!user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'starter')) {
     return (
       <div className={isDark ? 'dark' : ''}>
         <PageComponent {...pageProps} />
@@ -98,6 +119,7 @@ function App() {
         setIsOpen={setSidebarOpen}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
+        isAuthenticated={Boolean(user)}
       />
 
       {/* Main Content */}
@@ -108,7 +130,9 @@ function App() {
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6 lg:p-8">
-            <PageComponent {...pageProps} />
+            <DataProvider>
+              <PageComponent {...pageProps} />
+            </DataProvider>
           </div>
         </main>
       </div>

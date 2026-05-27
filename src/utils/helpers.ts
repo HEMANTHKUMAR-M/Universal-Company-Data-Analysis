@@ -1,9 +1,10 @@
 // Utility functions for data formatting and calculations
 
-export const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('en-US', {
+export const formatCurrency = (value: number, currency: 'USD' | 'INR' = 'USD'): string => {
+  const locale = currency === 'INR' ? 'en-IN' : 'en-US';
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'USD',
+    currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Settings, Moon, Sun, Bell, Lock, User } from 'lucide-react';
+import { Settings, Moon, Sun, Bell, Lock, User, Database, UploadCloud, BarChart3, ArrowRight } from 'lucide-react';
+import { useDataset } from '../context/DataContext';
 
 interface SettingsProps {
   isDark: boolean;
@@ -14,6 +15,11 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
     autoRefresh: true,
     refreshInterval: 300,
   });
+  const { fileName, headers, cleanedRecords, hasData, clearData } = useDataset();
+
+  const navigateTo = (page: string) => {
+    window.dispatchEvent(new CustomEvent('navigateTo', { detail: page }));
+  };
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -26,7 +32,59 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
     <div className="fade-in">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
-        <p className="text-gray-600 dark:text-gray-400">Manage your dashboard preferences</p>
+        <p className="text-gray-600 dark:text-gray-400">Manage your dashboard preferences and keep your BI workflow aligned.</p>
+      </div>
+
+      <div className="grid gap-4 mb-8 xl:grid-cols-4">
+        <div className="card p-6">
+          <div className="flex items-center gap-3 text-blue-600 dark:text-blue-300 mb-4">
+            <Database size={20} />
+            <div>
+              <p className="text-sm font-medium">Dataset Status</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ready for analysis</p>
+            </div>
+          </div>
+          <p className="text-2xl font-semibold text-gray-900 dark:text-white">{hasData ? 'Live' : 'Waiting'}</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{hasData ? `${cleanedRecords.length} rows mapped` : 'Upload a dataset to continue'}</p>
+        </div>
+
+        <div className="card p-6">
+          <div className="flex items-center gap-3 text-green-600 dark:text-green-300 mb-4">
+            <UploadCloud size={20} />
+            <div>
+              <p className="text-sm font-medium">Dataset File</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Current upload</p>
+            </div>
+          </div>
+          <p className="text-xl font-semibold text-gray-900 dark:text-white">{fileName || 'No file uploaded'}</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{headers.length ? `${headers.length} columns mapped` : 'Upload and map your fields'}</p>
+        </div>
+
+        <div className="card p-6">
+          <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-300 mb-4">
+            <BarChart3 size={20} />
+            <div>
+              <p className="text-sm font-medium">Flow Reminder</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Follow the BI flow</p>
+            </div>
+          </div>
+          <p className="text-xl font-semibold text-gray-900 dark:text-white">Step 2</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Upload dataset, map columns, then generate analytics.</p>
+        </div>
+
+        <div className="card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200 mb-4">
+              <ArrowRight size={20} />
+              <div>
+                <p className="text-sm font-medium">Quick Actions</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Open the next step</p>
+              </div>
+            </div>
+            <button onClick={() => navigateTo('upload')} className="btn-primary w-full mb-3">Upload dataset</button>
+            <button onClick={() => clearData()} className="btn-secondary w-full">Clear current dataset</button>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

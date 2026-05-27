@@ -3,21 +3,23 @@ import { Globe, TrendingUp } from 'lucide-react';
 import KPICard from '../components/KPICard';
 import Chart from '../components/Chart';
 import FilterBar from '../components/FilterBar';
-import { ordersData, getRegionalData } from '../data/sampleData';
+import { useDataset } from '../context/DataContext';
+import EmptyState from '../components/EmptyState';
 
 const RegionalAnalysis: React.FC = () => {
-  const regionalData = getRegionalData();
-  const topRegion = regionalData[0];
+  const { filteredRecords, hasData, loading } = useDataset();
+  if (!hasData && !loading) return <EmptyState title="Upload your company dataset to generate analytics dashboard" description="Upload a dataset to enable this view" />;
 
-  const regionOrderCounts = ordersData.reduce((acc, order) => {
-    const existing = acc.find(r => r.region === order.region);
-    if (existing) {
-      existing.orders++;
-    } else {
-      acc.push({ region: order.region, orders: 1 });
-    }
-    return acc;
-  }, [] as { region: string; orders: number }[]);
+  const regionMap: Record<string, { region: string; sales: number; profit: number; orders: number }> = {};
+  filteredRecords.forEach((o) => {
+    const r = String(o.region || 'Unknown');
+    regionMap[r] = regionMap[r] || { region: r, sales: 0, profit: 0, orders: 0 };
+    regionMap[r].sales += Number(o.revenue || o.sales || 0);
+    regionMap[r].profit += Number(o.profit || 0);
+    regionMap[r].orders += 1;
+  });
+  const regionalData = Object.values(regionMap).sort((a, b) => b.sales - a.sales);
+  const topRegion = regionalData[0] || { region: '—', sales: 0, profit: 0, orders: 0 };
 
   return (
     <div className="fade-in">
@@ -65,18 +67,21 @@ const RegionalAnalysis: React.FC = () => {
         <Chart
           data={regionalData}
           title="Regional Sales Distribution"
-          type="bar"
+          description="View revenue contributions from each geographic region."
+          type="pie"
           dataKey="sales"
-          xDataKey="region"
-          height={350}
+          height={360}
+          isDonut
         />
         <Chart
           data={regionalData}
-          title="Regional Profit Distribution"
+          title="Regional Profit Comparison"
+          description="Compare profitability across regions with rounded bars and focus on the highest performers."
           type="bar"
           dataKey="profit"
           xDataKey="region"
-          height={350}
+          height={360}
+          highlightExtremes
         />
       </div>
 
@@ -96,8 +101,8 @@ const RegionalAnalysis: React.FC = () => {
             </thead>
             <tbody>
               {regionalData.map((region, idx) => {
-                const regionOrders = regionOrderCounts.find(r => r.region === region.region)?.orders || 0;
-                const margin = ((region.profit / region.sales) * 100).toFixed(1);
+                const regionOrders = region.orders || 0;
+                const margin = region.sales ? ((region.profit / region.sales) * 100).toFixed(1) : '0.0';
                 return (
                   <tr key={idx} className="table-row">
                     <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">{region.region}</td>

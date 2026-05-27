@@ -77,10 +77,10 @@ const Register: React.FC<RegisterProps> = ({ setCurrentPage }) => {
       setLoading(false);
       setSuccess(true);
       reset();
-      // Redirect to dashboard on successful registration
+      // Redirect to upload dataset on successful registration
       setTimeout(() => {
         if (setCurrentPage) {
-          setCurrentPage('dashboard');
+          setCurrentPage('upload');
         }
       }, 1500);
     } catch (err: any) {

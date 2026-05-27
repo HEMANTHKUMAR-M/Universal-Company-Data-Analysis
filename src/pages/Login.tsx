@@ -21,7 +21,7 @@ const Login: React.FC<LoginProps> = ({ setCurrentPage }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { login, resetPassword } = useAuth();
+  const { login, loginWithGoogle, resetPassword } = useAuth();
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
@@ -29,13 +29,27 @@ const Login: React.FC<LoginProps> = ({ setCurrentPage }) => {
     try {
       await login(data.email, data.password);
       setLoading(false);
-      // Redirect to dashboard on successful login
       if (setCurrentPage) {
-        setCurrentPage('dashboard');
+        setCurrentPage('upload');
       }
     } catch (err: any) {
       setLoading(false);
       setError(err.message || 'Login failed');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await loginWithGoogle();
+      setLoading(false);
+      if (setCurrentPage) {
+        setCurrentPage('upload');
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Google sign-in failed');
     }
   };
 
@@ -151,8 +165,18 @@ const Login: React.FC<LoginProps> = ({ setCurrentPage }) => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <button type="button" className="btn-secondary flex items-center justify-center gap-2">Google</button>
-                <button type="button" className="btn-secondary flex items-center justify-center gap-2">Microsoft</button>
+                <button type="button" onClick={handleGoogleSignIn} className="btn-secondary flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21.35 11.1H12v2.8h5.65c-.25 1.5-1.3 2.8-2.75 3.65v3.05h4.45c2.6-2.4 4.1-5.95 4.1-9.95 0-.55-.05-1.1-.15-1.6z" fill="#4285F4" />
+                    <path d="M12 22c2.95 0 5.45-.95 7.25-2.55l-4.45-3.05c-1.25.85-2.85 1.35-4.8 1.35-3.65 0-6.75-2.45-7.85-5.75H.95v3.6C2.75 19.7 7.05 22 12 22z" fill="#34A853" />
+                    <path d="M4.15 13.05c-.3-.9-.45-1.85-.45-2.85s.15-1.95.45-2.85V3.75H.95C-.15 5.95-.15 8.95.95 11.15l3.2-2.1z" fill="#FBBC05" />
+                    <path d="M12 4.6c1.95 0 3.7.7 5.1 2.1l3.8-3.8C17.45.85 14.95 0 12 0 7.05 0 2.75 2.3.95 5.75l3.2 2.1C5.25 6.95 8.35 4.6 12 4.6z" fill="#EA4335" />
+                  </svg>
+                  <span>Sign in with Google</span>
+                </button>
+                <button type="button" className="btn-secondary flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                  Microsoft
+                </button>
               </div>
 
               <div className="text-center pt-4">
