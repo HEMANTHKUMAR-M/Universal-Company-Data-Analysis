@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
+import { getFirestore } from 'firebase/firestore';
 
 // Prefer environment variables for security. These are read from Vite envs.
 // If no envs are set (for quick local demo), fall back to the provided config below.
@@ -16,6 +17,7 @@ const fallbackConfig = {
 
 const app = initializeApp(fallbackConfig as any);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 
 // Initialize Analytics only in browser and when measurementId is present
 let analytics: ReturnType<typeof getAnalytics> | null = null;

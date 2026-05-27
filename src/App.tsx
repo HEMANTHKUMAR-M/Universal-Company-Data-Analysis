@@ -14,6 +14,7 @@ import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Starter from './pages/Starter';
+import AdminDashboard from './pages/AdminDashboard';
 import { useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import './styles/index.css';
@@ -32,7 +33,7 @@ function App() {
   });
 
   // Get auth state
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
 
   // Apply dark mode
   useEffect(() => {
@@ -80,6 +81,7 @@ function App() {
     regions: { component: RegionalAnalysis },
     reports: { component: Reports },
     insights: { component: InsightsAndReports },
+    admin: { component: AdminDashboard },
     settings: { component: SettingsPage, props: { isDark, setIsDark } },
     register: { component: Register, props: { setCurrentPage } },
     login: { component: Login, props: { setCurrentPage } },
@@ -120,6 +122,7 @@ function App() {
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         isAuthenticated={Boolean(user)}
+        isAdmin={isAdmin}
       />
 
       {/* Main Content */}
