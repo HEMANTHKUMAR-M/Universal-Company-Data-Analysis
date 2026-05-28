@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Starter from './pages/Starter';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminLogin from './pages/AdminLogin';
 import { useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import './styles/index.css';
@@ -47,17 +48,17 @@ function App() {
 
   // Keep unauthenticated users on the starter page until they choose login/register
   useEffect(() => {
-    if (!authLoading && !user && currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'starter') {
+    if (!authLoading && !user && currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'starter' && currentPage !== 'admin-login') {
       setCurrentPage('starter');
     }
   }, [user, authLoading, currentPage]);
 
-  // If a logged-in user is on auth pages, continue to upload dataset flow
+  // If a logged-in user is on auth pages, continue to the right authenticated flow
   useEffect(() => {
-    if (!authLoading && user && (currentPage === 'login' || currentPage === 'register')) {
-      setCurrentPage('upload');
+    if (!authLoading && user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'admin-login')) {
+      setCurrentPage(isAdmin ? 'admin' : 'upload');
     }
-  }, [user, authLoading, currentPage]);
+  }, [user, authLoading, currentPage, isAdmin]);
 
   // Listen for programmatic navigation events from pages/components
   useEffect(() => {
@@ -85,6 +86,7 @@ function App() {
     settings: { component: SettingsPage, props: { isDark, setIsDark } },
     register: { component: Register, props: { setCurrentPage } },
     login: { component: Login, props: { setCurrentPage } },
+    'admin-login': { component: AdminLogin, props: { setCurrentPage } },
   };
 
   const currentPageConfig = pages[currentPage];
@@ -104,7 +106,7 @@ function App() {
   }
 
   // Show auth and starter pages without sidebar when the user is not authenticated
-  if (!user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'starter')) {
+  if (!user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'starter' || currentPage === 'admin-login')) {
     return (
       <div className={isDark ? 'dark' : ''}>
         <PageComponent {...pageProps} />

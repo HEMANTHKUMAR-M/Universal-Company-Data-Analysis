@@ -179,7 +179,7 @@ const Login: React.FC<LoginProps> = ({ setCurrentPage }) => {
                 </button>
               </div>
 
-              <div className="text-center pt-4">
+              <div className="text-center pt-4 space-y-2">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Don't have an account?{' '}
                   <button
@@ -188,6 +188,16 @@ const Login: React.FC<LoginProps> = ({ setCurrentPage }) => {
                     className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
                   >
                     Sign up
+                  </button>
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Are you an administrator?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage?.('admin-login')}
+                    className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                  >
+                    Admin login
                   </button>
                 </p>
               </div>

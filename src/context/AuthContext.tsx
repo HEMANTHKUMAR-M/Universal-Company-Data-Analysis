@@ -40,8 +40,8 @@ type AuthContextType = {
   isAdmin: boolean;
   users: UserProfile[];
   register: (data: { email: string; password: string; displayName?: string; role?: UserRole }) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string) => Promise<UserRole>;
+  loginWithGoogle: () => Promise<UserRole>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   fetchUsers: () => Promise<UserProfile[]>;
@@ -162,6 +162,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(cred.user);
     setRole(loadedRole);
     await logActivity('User signed in with email/password', cred.user);
+    return loadedRole;
   };
 
   const loginWithGoogle = async () => {
@@ -170,6 +171,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(cred.user);
     setRole(loadedRole);
     await logActivity('User signed in with Google', cred.user);
+    return loadedRole;
   };
 
   const logout = async () => {

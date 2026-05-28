@@ -5,11 +5,13 @@ import { useDataset } from '../context/DataContext';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
+type UserRole = 'admin' | 'analyst' | 'viewer';
+
 type UserProfile = {
   uid: string;
   displayName?: string;
   email?: string;
-  role: 'admin' | 'analyst' | 'viewer';
+  role: UserRole;
   createdAt: string | null;
   lastSeen: string | null;
 };
@@ -23,7 +25,20 @@ type ActivityLog = {
 
 const AdminDashboard: React.FC = () => {
   const { isAdmin, fetchUsers, updateUserRole } = useAuth();
-  const { cleanedRecords, hasData } = useDataset();
+  const {
+    rawRecords,
+    mappedRecords,
+    cleanedRecords,
+    hasData,
+    settings,
+    mapping,
+    exportCSV,
+    exportExcel,
+    exportJSON,
+    clearData,
+    setMissingValueStrategy,
+    setDuplicateStrategy,
+  } = useDataset();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -60,12 +75,60 @@ const AdminDashboard: React.FC = () => {
     loadAdminData();
   }, [isAdmin]);
 
-  const handleRoleChange = async (uid: string, currentRole: string) => {
-    const nextRole = currentRole === 'admin' ? 'analyst' : 'admin';
-    await updateUserRole(uid, nextRole as 'admin' | 'analyst' | 'viewer');
-    setActionMessage(`Updated role to ${nextRole}`);
+  const ROLE_OPTIONS: UserRole[] = ['admin', 'analyst', 'viewer'];
+
+  const handleRoleChange = async (uid: string, newRole: UserRole) => {
+    await updateUserRole(uid, newRole);
+    setActionMessage(`Updated role to ${newRole}`);
     await loadAdminData();
   };
+
+  const totalFields = Object.keys(mapping).length;
+  const mappedFieldCount = Object.values(mapping).filter(Boolean).length;
+  const adminCount = users.filter((profile) => profile.role === 'admin').length;
+  const analystCount = users.filter((profile) => profile.role === 'analyst').length;
+  const viewerCount = users.filter((profile) => profile.role === 'viewer').length;
+
+  const missingCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    mappedRecords.forEach((row) => {
+      Object.entries(row).forEach(([field, value]) => {
+        if (value === null || value === undefined || value === '') {
+          counts[field] = (counts[field] || 0) + 1;
+        }
+      });
+    });
+    return counts;
+  }, [mappedRecords]);
+
+  const missingFields = useMemo(
+    () => Object.entries(missingCounts).sort((a, b) => b[1] - a[1]).slice(0, 4),
+    [missingCounts],
+  );
+
+  const totalMissingValues = useMemo(
+    () => Object.values(missingCounts).reduce((sum, value) => sum + value, 0),
+    [missingCounts],
+  );
+
+  const duplicateCount = useMemo(() => {
+    const seen = new Set<string>();
+    let duplicates = 0;
+    cleanedRecords.forEach((row) => {
+      const key = JSON.stringify(row);
+      if (seen.has(key)) duplicates += 1;
+      else seen.add(key);
+    });
+    return duplicates;
+  }, [cleanedRecords]);
+
+  const dataHealth = rawRecords.length ? Math.max(0, 100 - Math.round((totalMissingValues / rawRecords.length) * 100)) : 100;
+  const urgentIssues = totalMissingValues + duplicateCount;
+
+  const dirtyRows = useMemo(
+    () => mappedRecords.filter((row) => Object.values(row).some((value) => value === null || value === undefined || value === '')),
+    [mappedRecords],
+  );
 
   const recentReports = useMemo(
     () => [
@@ -116,26 +179,157 @@ const AdminDashboard: React.FC = () => {
         )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-4">
-        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Active datasets</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{hasData ? cleanedRecords.length : 0}</p>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Rows available in the active dataset.</p>
+      <div className="space-y-6">
+        <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-700 to-blue-600 text-white p-8 shadow-xl overflow-hidden relative">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_40%)]" />
+          <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-blue-200">Admin console</p>
+              <h2 className="mt-3 text-4xl font-bold">Operations & governance</h2>
+              <p className="mt-2 max-w-2xl text-sm text-blue-100/90">Manage users, datasets, audits, and system health from one centralized command center.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="rounded-3xl bg-white bg-opacity-10 p-4">
+                <p className="text-sm text-blue-100/80">Admins</p>
+                <p className="mt-2 text-2xl font-semibold">{adminCount}</p>
+              </div>
+              <div className="rounded-3xl bg-white bg-opacity-10 p-4">
+                <p className="text-sm text-blue-100/80">Analysts</p>
+                <p className="mt-2 text-2xl font-semibold">{analystCount}</p>
+              </div>
+              <div className="rounded-3xl bg-white bg-opacity-10 p-4">
+                <p className="text-sm text-blue-100/80">Viewers</p>
+                <p className="mt-2 text-2xl font-semibold">{viewerCount}</p>
+              </div>
+              <div className="rounded-3xl bg-white bg-opacity-10 p-4">
+                <p className="text-sm text-blue-100/80">Data health</p>
+                <p className="mt-2 text-2xl font-semibold">{dataHealth}%</p>
+              </div>
+              <div className="rounded-3xl bg-white bg-opacity-10 p-4">
+                <p className="text-sm text-blue-100/80">Issues</p>
+                <p className="mt-2 text-2xl font-semibold">{urgentIssues}</p>
+              </div>
+            </div>
+            <div className="mt-6 rounded-3xl bg-white/10 p-4 text-sm text-blue-100/90">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span>Data health progress</span>
+                <span className="font-semibold">{dataHealth}%</span>
+              </div>
+              <div className="h-3 rounded-full bg-white/20 overflow-hidden">
+                <div className="h-full rounded-full bg-white" style={{ width: `${dataHealth}%` }} />
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Registered users</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{users.length}</p>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Users currently stored in your Firestore directory.</p>
+
+        <div className="grid gap-6 xl:grid-cols-4">
+          <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Active datasets</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{hasData ? cleanedRecords.length : 0}</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Rows available in the active dataset.</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Registered users</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{users.length}</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Users currently stored in your Firestore directory.</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Recent reports</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{recentReports.length}</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Reports tracked through the management console.</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Activity log</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{logs.length}</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Latest actions captured by the system.</p>
+          </div>
         </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Recent reports</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{recentReports.length}</p>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Reports tracked through the management console.</p>
+          <div className="mb-4">
+            <p className="text-sm font-medium uppercase text-blue-600 dark:text-blue-300">Dataset quality</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">Trusted data controls</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Inspect and manage data quality from raw intake through cleaned analytics.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Raw records</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{rawRecords.length}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Cleaned rows</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{cleanedRecords.length}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Mapped fields</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{mappedFieldCount}/{totalFields}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Missing values</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{totalMissingValues}</p>
+            </div>
+          </div>
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-900 dark:text-white">Current cleaning strategy</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Missing values: <span className="font-semibold text-slate-900 dark:text-white">{settings.missingValueStrategy}</span></p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Duplicate rows removed: <span className="font-semibold text-slate-900 dark:text-white">{duplicateCount}</span></p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Duplicate strategy: <span className="font-semibold text-slate-900 dark:text-white">{settings.duplicateStrategy}</span></p>
+          </div>
+          {missingFields.length > 0 && (
+            <div className="mt-6">
+              <p className="text-sm font-medium text-slate-900 dark:text-white">Fields with the most missing data</p>
+              <ul className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-400">
+                {missingFields.map(([field, count]) => (
+                  <li key={field} className="flex items-center justify-between rounded-2xl bg-white p-3 dark:bg-slate-950">
+                    <span>{field}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
+
         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Activity log</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{logs.length}</p>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Latest actions captured by the system.</p>
+          <div className="mb-4">
+            <p className="text-sm font-medium uppercase text-blue-600 dark:text-blue-300">Data operations</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">Admin dataset tools</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Export, clear, and normalize the dataset directly from the admin console.</p>
+          </div>
+          <div className="grid gap-3">
+            <button onClick={exportCSV} className="btn-secondary w-full">Export CSV</button>
+            <button onClick={exportExcel} className="btn-secondary w-full">Export Excel</button>
+            <button onClick={exportJSON} className="btn-secondary w-full">Export JSON</button>
+            <button onClick={clearData} className="btn-secondary w-full text-red-700 border-red-200 hover:border-red-300 dark:text-red-300">Clear dataset</button>
+          </div>
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">Data remediation</p>
+            <div className="mt-3 space-y-3">
+              <button onClick={() => setMissingValueStrategy('fill-average')} className="btn-secondary w-full">Fill missing values with average</button>
+              <button onClick={() => setDuplicateStrategy('drop-duplicates')} className="btn-secondary w-full">Drop duplicates</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-gray-950 p-6 shadow-sm">
+          <div className="mb-4">
+            <p className="text-sm font-medium uppercase text-blue-600 dark:text-blue-300">Problem preview</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">Dirty record sample</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Review a small sample of rows with missing fields for fast troubleshooting.</p>
+          </div>
+          {dirtyRows.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">No incomplete rows detected.</p>
+          ) : (
+            <div className="space-y-3">
+              {dirtyRows.slice(0, 3).map((row, idx) => (
+                <div key={idx} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Row {idx + 1}</div>
+                  <pre className="mt-2 overflow-x-auto text-xs text-slate-700 dark:text-slate-200">{JSON.stringify(row, null, 2)}</pre>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -164,16 +358,21 @@ const AdminDashboard: React.FC = () => {
                   <tr key={profile.uid}>
                     <td className="px-4 py-4 text-slate-900 dark:text-slate-100">{profile.displayName || 'Unknown user'}</td>
                     <td className="px-4 py-4 text-slate-500 dark:text-slate-300">{profile.email || '—'}</td>
-                    <td className="px-4 py-4 text-slate-900 dark:text-slate-100">{profile.role}</td>
-                    <td className="px-4 py-4 text-slate-500 dark:text-slate-300">{profile.lastSeen || 'Never'}</td>
-                    <td className="px-4 py-4 text-right">
-                      <button
-                        onClick={() => handleRoleChange(profile.uid, profile.role)}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+                    <td className="px-4 py-4 text-slate-900 dark:text-slate-100">
+                      <select
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                        value={profile.role}
+                        onChange={(e) => handleRoleChange(profile.uid, e.target.value as UserRole)}
                       >
-                        {profile.role === 'admin' ? 'Revoke admin' : 'Promote admin'}
-                      </button>
+                        {ROLE_OPTIONS.map((roleOption) => (
+                          <option key={roleOption} value={roleOption}>
+                            {roleOption.charAt(0).toUpperCase() + roleOption.slice(1)}
+                          </option>
+                        ))}
+                      </select>
                     </td>
+                    <td className="px-4 py-4 text-slate-500 dark:text-slate-300">{profile.lastSeen || 'Never'}</td>
+                    <td className="px-4 py-4 text-right text-sm font-medium text-slate-600 dark:text-slate-400">Select to update</td>
                   </tr>
                 ))}
               </tbody>

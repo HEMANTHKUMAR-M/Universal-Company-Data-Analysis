@@ -20,7 +20,7 @@ const Starter: React.FC = () => {
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Launch your analytics journey with modern BI flow.</h1>
             <p className="max-w-2xl text-base text-slate-600 dark:text-slate-300">Start with an elegant landing page, authenticate with Google or email, upload your dataset, map columns, and generate a powerful dashboard with charts, scorecards, and insights.</p>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <button
                 onClick={() => navigateTo(user ? 'upload' : 'login')}
                 className="btn-primary flex items-center justify-center gap-2"
@@ -33,6 +33,14 @@ const Starter: React.FC = () => {
               >
                 <BarChart3 size={18} /> {user ? 'Open Dashboard' : 'Create account'}
               </button>
+              {!user && (
+                <button
+                  onClick={() => navigateTo('admin-login')}
+                  className="btn-secondary flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck size={18} /> Admin login
+                </button>
+              )}
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
