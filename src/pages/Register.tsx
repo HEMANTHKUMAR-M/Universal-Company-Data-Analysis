@@ -77,11 +77,12 @@ const Register: React.FC<RegisterProps> = ({ setCurrentPage }) => {
         email: data.email,
         password: data.password,
         displayName: data.fullName,
-        role: data.role as 'analyst' | 'viewer',
+        role: data.role as any,
       });
       setLoading(false);
       setSuccess(true);
       reset();
+      // no admin registration flow
       // Redirect to upload dataset on successful registration
       setTimeout(() => {
         if (setCurrentPage) {
@@ -199,13 +200,13 @@ const Register: React.FC<RegisterProps> = ({ setCurrentPage }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
                 <div className={`mt-1 relative ${errors.role ? 'ring-2 ring-red-500 rounded-md' : ''}`}>
                   <select
-                    {...register('role', { required: 'Role is required' })}
-                    className="input-field w-full rounded-xl pl-4"
-                    defaultValue="analyst"
-                  >
-                    <option value="analyst">Analyst</option>
-                    <option value="viewer">Viewer</option>
-                  </select>
+                      {...register('role', { required: 'Role is required' })}
+                      className="input-field w-full rounded-xl pl-4"
+                      defaultValue={'analyst'}
+                    >
+                      <option value="analyst">Analyst</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
                 </div>
                 {errors.role && <p className="text-sm text-red-500 mt-1">{errors.role.message}</p>}
               </div>

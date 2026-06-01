@@ -43,7 +43,7 @@ const Navbar: React.FC<NavbarProps> = ({ isDark, setIsDark }) => {
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{user.displayName || user.email}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Member</p>
                 </div>
-                <button onClick={() => logout()} title="Logout" className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <button type="button" onClick={logout} title="Logout" className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <LogOut size={14} className="text-white" />
                 </button>
               </>

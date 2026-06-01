@@ -15,14 +15,13 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   serverTimestamp,
   setDoc,
-  updateDoc,
+  
 } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
-type UserRole = 'admin' | 'analyst' | 'viewer';
+type UserRole = 'analyst' | 'viewer';
 
 type UserProfile = {
   uid: string;
@@ -37,15 +36,12 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   role: UserRole | null;
-  isAdmin: boolean;
-  users: UserProfile[];
   register: (data: { email: string; password: string; displayName?: string; role?: UserRole }) => Promise<void>;
   login: (email: string, password: string) => Promise<UserRole>;
   loginWithGoogle: () => Promise<UserRole>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  fetchUsers: () => Promise<UserProfile[]>;
-  updateUserRole: (uid: string, role: UserRole) => Promise<void>;
+  
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,8 +59,6 @@ const normalizeTimestamp = (value: any) => {
 
 const defaultRoleForEmail = (email: string | null): UserRole => {
   if (!email) return 'viewer';
-  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@company.com';
-  if (email.toLowerCase() === adminEmail.toLowerCase()) return 'admin';
   return 'analyst';
 };
 
@@ -116,7 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<UserRole | null>(null);
-  const [users, setUsers] = useState<UserProfile[]>([]);
+  
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -149,7 +143,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (displayName) {
       await updateProfile(cred.user, { displayName });
     }
-    const roleToStore = requestedRole === 'admin' ? 'analyst' : requestedRole;
+    // Normalize requested role: unsupported roles fall back to analyst
+    const roleToStore = requestedRole === 'viewer' ? 'viewer' : 'analyst';
     await createProfileRecord(cred.user, roleToStore);
     setUser(cred.user);
     setRole(roleToStore);
@@ -175,44 +170,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
-    await logActivity('User signed out', user);
-    await signOut(auth);
-    setUser(null);
-    setRole(null);
+    const currentUser = user;
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    } finally {
+      setUser(null);
+      setRole(null);
+      logActivity('User signed out', currentUser).catch(() => {});
+    }
   };
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
   };
 
-  const fetchUsers = async () => {
-    const snapshot = await getDocs(collection(db, 'users'));
-    const profiles: UserProfile[] = snapshot.docs.map((docSnapshot) => {
-      const data = docSnapshot.data() as any;
-      return {
-        uid: docSnapshot.id,
-        displayName: data.displayName || '',
-        email: data.email || '',
-        role: (data.role || 'viewer') as UserRole,
-        createdAt: normalizeTimestamp(data.createdAt),
-        lastSeen: normalizeTimestamp(data.lastSeen),
-      };
-    });
-    setUsers(profiles);
-    return profiles;
-  };
-
-  const updateUserRole = async (uid: string, newRole: UserRole) => {
-    const profileRef = doc(db, 'users', uid);
-    await updateDoc(profileRef, { role: newRole });
-    await logActivity(`Updated role to ${newRole} for user ${uid}`, user);
-    await fetchUsers();
-  };
-
-  const isAdmin = role === 'admin';
+  
 
   return (
-    <AuthContext.Provider value={{ user, loading, role, isAdmin, users, register, login, loginWithGoogle, logout, resetPassword, fetchUsers, updateUserRole }}>
+    <AuthContext.Provider value={{ user, loading, role, register, login, loginWithGoogle, logout, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

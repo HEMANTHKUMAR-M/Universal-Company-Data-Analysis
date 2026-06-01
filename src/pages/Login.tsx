@@ -190,16 +190,7 @@ const Login: React.FC<LoginProps> = ({ setCurrentPage }) => {
                     Sign up
                   </button>
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Are you an administrator?{' '}
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage?.('admin-login')}
-                    className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
-                  >
-                    Admin login
-                  </button>
-                </p>
+                {/* admin login removed */}
               </div>
             </form>
 

@@ -67,21 +67,18 @@ const RegionalAnalysis: React.FC = () => {
         <Chart
           data={regionalData}
           title="Regional Sales Distribution"
-          description="View revenue contributions from each geographic region."
-          type="pie"
+          type="bar"
           dataKey="sales"
-          height={360}
-          isDonut
+          xDataKey="region"
+          height={350}
         />
         <Chart
           data={regionalData}
-          title="Regional Profit Comparison"
-          description="Compare profitability across regions with rounded bars and focus on the highest performers."
+          title="Regional Profit Distribution"
           type="bar"
           dataKey="profit"
           xDataKey="region"
-          height={360}
-          highlightExtremes
+          height={350}
         />
       </div>
 

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Settings, Moon, Sun, Bell, Lock, User, Database, UploadCloud, BarChart3, ArrowRight } from 'lucide-react';
 import { useDataset } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 
 interface SettingsProps {
   isDark: boolean;
@@ -8,7 +9,8 @@ interface SettingsProps {
 }
 
 const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
-  const [settings, setSettings] = React.useState({
+  const [selectedSection, setSelectedSection] = useState('general');
+  const [settings, setSettings] = useState({
     notifications: true,
     emailAlerts: true,
     darkMode: isDark,
@@ -16,6 +18,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
     refreshInterval: 300,
   });
   const { fileName, headers, cleanedRecords, hasData, clearData } = useDataset();
+  const { user, role } = useAuth();
 
   const navigateTo = (page: string) => {
     window.dispatchEvent(new CustomEvent('navigateTo', { detail: page }));
@@ -98,17 +101,23 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
             {[
               { id: 'general', label: 'General', icon: Settings },
               { id: 'notifications', label: 'Notifications', icon: Bell },
-              { id: 'security', label: 'Security', icon: Lock },
               { id: 'account', label: 'Account', icon: User },
+              { id: 'security', label: 'Security', icon: Lock },
             ].map((item) => {
               const Icon = item.icon;
+              const isActive = selectedSection === item.id;
               return (
                 <button
                   key={item.id}
-                  className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-gray-700 dark:text-gray-300"
+                  onClick={() => setSelectedSection(item.id)}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
                 >
                   <Icon size={18} />
-                  <span className="text-sm">{item.label}</span>
+                  <span className="text-sm font-medium">{item.label}</span>
                 </button>
               );
             })}
@@ -118,6 +127,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
         {/* Settings Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* General Settings */}
+          {selectedSection === 'general' && (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">General Settings</h2>
             
@@ -181,8 +191,10 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Notification Settings */}
+          {selectedSection === 'notifications' && (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Notifications</h2>
             
@@ -226,8 +238,10 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Account Settings */}
+          {selectedSection === 'account' && (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Account</h2>
             
@@ -238,7 +252,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 </label>
                 <input
                   type="text"
-                  defaultValue="Admin User"
+                  defaultValue={user?.displayName || 'User'}
                   className="input-field"
                 />
               </div>
@@ -249,8 +263,9 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 </label>
                 <input
                   type="email"
-                  defaultValue="admin@bidashboard.com"
+                  defaultValue={user?.email || 'user@example.com'}
                   className="input-field"
+                  disabled
                 />
               </div>
 
@@ -258,18 +273,19 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Role
                 </label>
-                <select className="select-field">
-                  <option>Manager</option>
-                  <option>Analyst</option>
-                  <option>Viewer</option>
+                <select className="select-field" disabled>
+                  <option>{role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Viewer'}</option>
                 </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Contact an administrator to change your role</p>
               </div>
 
               <button className="btn-primary w-full">Save Changes</button>
             </div>
           </div>
+          )}
 
           {/* Security Settings */}
+          {selectedSection === 'security' && (
           <div className="card">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Security</h2>
             
@@ -289,8 +305,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Manage your active sessions</p>
               </button>
             </div>
-          </div>
-        </div>
+          </div>          )}        </div>
       </div>
     </div>
   );

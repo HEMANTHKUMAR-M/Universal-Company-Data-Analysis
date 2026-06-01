@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Download, FileText } from 'lucide-react';
 import { useDataset } from '../context/DataContext';
 import Chart from '../components/Chart';
@@ -6,24 +6,8 @@ import { downloadCSV, exportPDF } from '../utils/helpers';
 import EmptyState from '../components/EmptyState';
 
 const Reports: React.FC = () => {
-  const { filteredRecords, cleanedRecords, metrics, hasData, loading } = useDataset();
+  const { filteredRecords, cleanedRecords, metrics, chartConfigs, hasData, loading } = useDataset();
   if (!hasData && !loading) return <EmptyState title="Upload your company dataset to generate analytics dashboard" description="Upload a dataset to enable this view" />;
-
-  const monthlyData = useMemo(() => {
-    if (!hasData) return [];
-    const months: Record<string, { month: string; sales: number; profit: number; order: number }> = {};
-    filteredRecords.forEach((row: Record<string, any>) => {
-      const dateValue = row.date || row.orderDate || row.transactionDate;
-      const date = dateValue ? new Date(String(dateValue)) : null;
-      if (!date || Number.isNaN(date.getTime())) return;
-      const monthLabel = date.toLocaleString('default', { month: 'short' });
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      if (!months[key]) months[key] = { month: `${monthLabel} ${date.getFullYear()}`, sales: 0, profit: 0, order: date.getTime() };
-      months[key].sales += Number(row.revenue || row.sales || 0);
-      months[key].profit += Number(row.profit || 0);
-    });
-    return Object.values(months).sort((a, b) => a.order - b.order);
-  }, [filteredRecords, hasData]);
 
   const kpis = metrics || {
     recordCount: 0,
@@ -43,6 +27,7 @@ const Reports: React.FC = () => {
     topEmployee: '',
     paymentModeBreakdown: {},
   } as any;
+  const monthlyData = (chartConfigs || []).find((c) => c.id === 'time-revenue')?.data || [];
   const productData = Object.values((filteredRecords || []).reduce((acc: any, row: any) => {
     const key = row.product || 'Unknown';
     acc[key] = acc[key] || { product: key, sales: 0, profit: 0 };
@@ -302,10 +287,10 @@ const Reports: React.FC = () => {
           </div>
           <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">Last Updated: Today</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{(cleanedRecords || []).length} orders</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{cleanedRecords.length} orders</p>
           </div>
           <button
-            onClick={() => handleExportCSV(cleanedRecords || [], 'complete_data')}
+            onClick={() => handleExportCSV(cleanedRecords, 'complete_data')}
             className="w-full btn-primary flex items-center justify-center gap-2"
           >
             <Download size={16} />
@@ -319,7 +304,6 @@ const Reports: React.FC = () => {
         <Chart
           data={monthlyData}
           title="Monthly Sales Trend"
-          description="Track revenue month-over-month and quickly identify seasonal patterns."
           type="line"
           dataKey={['sales']}
           xDataKey="month"
@@ -328,33 +312,28 @@ const Reports: React.FC = () => {
 
         <Chart
           data={monthlyData}
-          title="Monthly Profit Trend"
-          description="Compare profit performance with a clean and responsive bar view."
+          title="Profit by Month"
           type="bar"
-          dataKey="profit"
+          dataKey={'profit'}
           xDataKey="month"
           height={320}
-          highlightExtremes
         />
 
         <Chart
           data={regionalData}
-          title="Region-wise Sales Share"
-          description="A donut chart showing revenue distribution by region."
+          title="Region-wise Sales"
           type="pie"
-          dataKey="sales"
+          dataKey={'sales'}
+          xDataKey="region"
           height={320}
-          isDonut
         />
 
         <Chart
           data={categoryData}
-          title="Category Revenue Breakdown"
-          description="Visualize which categories contribute the most to revenue."
+          title="Category-wise Revenue"
           type="pie"
-          dataKey="sales"
+          dataKey={'sales'}
           height={320}
-          isDonut
         />
       </div>
 

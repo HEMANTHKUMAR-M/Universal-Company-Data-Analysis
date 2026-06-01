@@ -14,8 +14,6 @@ import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Starter from './pages/Starter';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminLogin from './pages/AdminLogin';
 import { useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import './styles/index.css';
@@ -34,7 +32,7 @@ function App() {
   });
 
   // Get auth state
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // Apply dark mode
   useEffect(() => {
@@ -48,17 +46,17 @@ function App() {
 
   // Keep unauthenticated users on the starter page until they choose login/register
   useEffect(() => {
-    if (!authLoading && !user && currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'starter' && currentPage !== 'admin-login') {
+    if (!authLoading && !user && currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'starter') {
       setCurrentPage('starter');
     }
   }, [user, authLoading, currentPage]);
 
   // If a logged-in user is on auth pages, continue to the right authenticated flow
   useEffect(() => {
-    if (!authLoading && user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'admin-login')) {
-      setCurrentPage(isAdmin ? 'admin' : 'upload');
+    if (!authLoading && user && (currentPage === 'login' || currentPage === 'register')) {
+      setCurrentPage('upload');
     }
-  }, [user, authLoading, currentPage, isAdmin]);
+  }, [user, authLoading, currentPage]);
 
   // Listen for programmatic navigation events from pages/components
   useEffect(() => {
@@ -82,11 +80,10 @@ function App() {
     regions: { component: RegionalAnalysis },
     reports: { component: Reports },
     insights: { component: InsightsAndReports },
-    admin: { component: AdminDashboard },
     settings: { component: SettingsPage, props: { isDark, setIsDark } },
     register: { component: Register, props: { setCurrentPage } },
     login: { component: Login, props: { setCurrentPage } },
-    'admin-login': { component: AdminLogin, props: { setCurrentPage } },
+    settings: { component: SettingsPage, props: { isDark, setIsDark } },
   };
 
   const currentPageConfig = pages[currentPage];
@@ -106,7 +103,7 @@ function App() {
   }
 
   // Show auth and starter pages without sidebar when the user is not authenticated
-  if (!user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'starter' || currentPage === 'admin-login')) {
+    if (!user && (currentPage === 'login' || currentPage === 'register' || currentPage === 'starter')) {
     return (
       <div className={isDark ? 'dark' : ''}>
         <PageComponent {...pageProps} />
@@ -124,7 +121,6 @@ function App() {
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         isAuthenticated={Boolean(user)}
-        isAdmin={isAdmin}
       />
 
       {/* Main Content */}

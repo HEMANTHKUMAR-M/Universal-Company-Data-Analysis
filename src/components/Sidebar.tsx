@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, X, BarChart3, TrendingUp, Users, Package, Globe, FileText, Settings, Home, LogIn, UserPlus, Lightbulb, UploadCloud, ShieldCheck } from 'lucide-react';
+import { Menu, X, BarChart3, TrendingUp, Users, Package, Globe, FileText, Settings, Home, LogIn, UserPlus, Lightbulb, UploadCloud } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -7,10 +7,10 @@ interface SidebarProps {
   currentPage: string;
   setCurrentPage: (page: string) => void;
   isAuthenticated: boolean;
-  isAdmin?: boolean;
+  
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, currentPage, setCurrentPage, isAuthenticated, isAdmin }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, currentPage, setCurrentPage, isAuthenticated }) => {
   const menuItems = [
     { id: 'upload', label: 'Upload Dataset', icon: UploadCloud },
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -22,7 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, currentPage, setCu
     { id: 'insights', label: 'Insights & Reports', icon: Lightbulb },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'settings', label: 'Settings', icon: Settings },
-    ...(isAdmin ? [{ id: 'admin', label: 'Admin Panel', icon: ShieldCheck }] : []),
+    // admin panel removed
     ...(!isAuthenticated
       ? [
           { id: 'register', label: 'Register', icon: UserPlus },

@@ -10,22 +10,15 @@ const ProductPerformance: React.FC = () => {
   const { filteredRecords, hasData, loading } = useDataset();
   if (!hasData && !loading) return <EmptyState title="Upload your company dataset to generate analytics dashboard" description="Upload a dataset to enable this view" />;
 
-  const productMap: Record<string, { product: string; category: string; sales: number; profit: number; quantity: number }> = {};
+  const productMap: Record<string, { product: string; sales: number; profit: number; quantity: number }> = {};
   filteredRecords.forEach((row) => {
     const name = String(row.product || 'Unknown');
-    const category = String(row.category || 'Other');
-    productMap[name] = productMap[name] || { product: name, category, sales: 0, profit: 0, quantity: 0 };
+    productMap[name] = productMap[name] || { product: name, sales: 0, profit: 0, quantity: 0 };
     productMap[name].sales += Number(row.revenue || row.sales || 0);
     productMap[name].profit += Number(row.profit || 0);
     productMap[name].quantity += Number(row.quantity || 0);
   });
   const productData = Object.values(productMap).sort((a, b) => b.sales - a.sales);
-  const categoryMap: Record<string, { category: string; sales: number }> = {};
-  productData.forEach((product) => {
-    categoryMap[product.category] = categoryMap[product.category] || { category: product.category, sales: 0 };
-    categoryMap[product.category].sales += product.sales;
-  });
-  const categoryData = Object.values(categoryMap).sort((a, b) => b.sales - a.sales);
   const topProduct = productData[0] || { product: '—', sales: 0 };
   const avgProductSales = productData.length ? Math.round(productData.reduce((sum, p) => sum + p.sales, 0) / productData.length) : 0;
 
@@ -72,28 +65,12 @@ const ProductPerformance: React.FC = () => {
       <div className="card mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Product Sales Performance</h3>
         <Chart
-          data={productData.slice(0, 12)}
-          title="Top Products by Sales"
-          description="Compare the highest revenue-generating products in your catalog."
+          data={productData}
+          title=""
           type="bar"
           dataKey="sales"
           xDataKey="product"
           height={400}
-          highlightExtremes
-        />
-      </div>
-
-      {/* Category Revenue Chart */}
-      <div className="card mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Category Revenue Share</h3>
-        <Chart
-          data={categoryData}
-          title="Category Revenue Breakdown"
-          description="See which product categories contribute most to revenue."
-          type="pie"
-          dataKey="sales"
-          height={360}
-          isDonut
         />
       </div>
 
