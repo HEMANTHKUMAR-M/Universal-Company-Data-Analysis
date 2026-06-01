@@ -17,20 +17,11 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
-  
+  updateDoc,
 } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
 type UserRole = 'analyst' | 'viewer';
-
-type UserProfile = {
-  uid: string;
-  displayName?: string;
-  email?: string;
-  role: UserRole;
-  createdAt: string | null;
-  lastSeen: string | null;
-};
 
 type AuthContextType = {
   user: User | null;
@@ -41,7 +32,7 @@ type AuthContextType = {
   loginWithGoogle: () => Promise<UserRole>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  
+  updateProfileInfo: (displayName: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,13 +40,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const googleProvider = new GoogleAuthProvider();
 
 type AuthProviderProps = { children: React.ReactNode };
-
-const normalizeTimestamp = (value: any) => {
-  if (!value) return null;
-  if (value.toDate) return value.toDate().toISOString();
-  if (value instanceof Date) return value.toISOString();
-  return String(value);
-};
 
 const defaultRoleForEmail = (email: string | null): UserRole => {
   if (!email) return 'viewer';
@@ -186,10 +170,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await sendPasswordResetEmail(auth, email);
   };
 
-  
+  const updateProfileInfo = async (displayName: string) => {
+    if (!auth.currentUser) throw new Error('No authenticated user');
+    const currentUser = auth.currentUser;
+    await updateProfile(currentUser, { displayName });
+    const profileRef = doc(db, 'users', currentUser.uid);
+    await setDoc(profileRef, { displayName }, { merge: true });
+    setUser({ ...currentUser } as User);
+    await logActivity('Updated profile information', currentUser);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, role, register, login, loginWithGoogle, logout, resetPassword }}>
+    <AuthContext.Provider value={{ user, loading, role, register, login, loginWithGoogle, logout, resetPassword, updateProfileInfo }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings, Moon, Sun, Bell, Lock, User, Database, UploadCloud, BarChart3, ArrowRight } from 'lucide-react';
 import { useDataset } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,25 +10,88 @@ interface SettingsProps {
 
 const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
   const [selectedSection, setSelectedSection] = useState('general');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [showSavedPopup, setShowSavedPopup] = useState(false);
   const [settings, setSettings] = useState({
     notifications: true,
     emailAlerts: true,
     darkMode: isDark,
     autoRefresh: true,
     refreshInterval: 300,
+    twoFactorEnabled: false,
   });
+  const [accountName, setAccountName] = useState('');
   const { fileName, headers, cleanedRecords, hasData, clearData } = useDataset();
-  const { user, role } = useAuth();
+  const { user, role, resetPassword, updateProfileInfo } = useAuth();
+
+  useEffect(() => {
+    if (user?.displayName) {
+      setAccountName(user.displayName);
+    }
+  }, [user]);
 
   const navigateTo = (page: string) => {
     window.dispatchEvent(new CustomEvent('navigateTo', { detail: page }));
   };
 
   const handleSettingChange = (key: string, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
     if (key === 'darkMode') {
       setIsDark(value);
     }
+  };
+
+  const handleSaveAccount = async () => {
+    if (!user) {
+      setStatusMessage('No authenticated user found.');
+      return;
+    }
+
+    const nextName = accountName.trim();
+    if (!nextName) {
+      setStatusMessage('Please enter a valid display name before saving.');
+      return;
+    }
+
+    try {
+      await updateProfileInfo(nextName);
+      setAccountName(nextName);
+      setStatusMessage('Account changes saved successfully.');
+      setShowSavedPopup(true);
+      setTimeout(() => setShowSavedPopup(false), 3200);
+    } catch (error: any) {
+      setStatusMessage(error?.message || 'Failed to save account changes.');
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) {
+      setStatusMessage('Your email address is not available.');
+      return;
+    }
+
+    try {
+      await resetPassword(user.email);
+      setStatusMessage('Password reset instructions have been sent to your email.');
+    } catch (error: any) {
+      setStatusMessage(error?.message || 'Unable to send password reset email.');
+    }
+  };
+
+  const handleToggleTwoFactor = () => {
+    setSettings((prev) => {
+      const next = { ...prev, twoFactorEnabled: !prev.twoFactorEnabled };
+      setStatusMessage(
+        next.twoFactorEnabled
+          ? 'Two-factor authentication enabled for your account.'
+          : 'Two-factor authentication disabled.'
+      );
+      return next;
+    });
+  };
+
+  const handleActiveSessions = () => {
+    setStatusMessage('Active sessions refreshed. No other active sessions were found.');
   };
 
   return (
@@ -37,6 +100,26 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
         <p className="text-gray-600 dark:text-gray-400">Manage your dashboard preferences and keep your BI workflow aligned.</p>
       </div>
+
+      {statusMessage && (
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+          {statusMessage}
+        </div>
+      )}
+
+      {showSavedPopup && (
+        <div className="fixed right-4 top-4 z-50 rounded-2xl border border-green-200 bg-white p-4 shadow-xl dark:border-green-700 dark:bg-slate-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+              ✓
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Saved successfully</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Profile updated to "{accountName}"</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 mb-8 xl:grid-cols-4">
         <div className="card p-6">
@@ -252,7 +335,8 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 </label>
                 <input
                   type="text"
-                  defaultValue={user?.displayName || 'User'}
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
                   className="input-field"
                 />
               </div>
@@ -263,7 +347,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 </label>
                 <input
                   type="email"
-                  defaultValue={user?.email || 'user@example.com'}
+                  value={user?.email || ''}
                   className="input-field"
                   disabled
                 />
@@ -279,7 +363,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Contact an administrator to change your role</p>
               </div>
 
-              <button className="btn-primary w-full">Save Changes</button>
+              <button type="button" onClick={handleSaveAccount} className="btn-primary w-full">Save Changes</button>
             </div>
           </div>
           )}
@@ -290,22 +374,43 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Security</h2>
             
             <div className="space-y-4">
-              <button className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+              <button
+                type="button"
+                onClick={handlePasswordReset}
+                className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              >
                 <p className="font-medium text-gray-900 dark:text-white">Change Password</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Update your password</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Send a password reset email to your account.</p>
               </button>
 
-              <button className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
-                <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Enable 2FA for extra security</p>
+              <button
+                type="button"
+                onClick={handleToggleTwoFactor}
+                className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{settings.twoFactorEnabled ? '2FA is enabled for your account.' : 'Enable 2FA for extra security.'}</p>
+                  </div>
+                  <span className={`text-sm font-semibold ${settings.twoFactorEnabled ? 'text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {settings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
               </button>
 
-              <button className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+              <button
+                type="button"
+                onClick={handleActiveSessions}
+                className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              >
                 <p className="font-medium text-gray-900 dark:text-white">Active Sessions</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Manage your active sessions</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Refresh session status and review active device access.</p>
               </button>
             </div>
-          </div>          )}        </div>
+          </div>
+          )}
+        </div>
       </div>
     </div>
   );

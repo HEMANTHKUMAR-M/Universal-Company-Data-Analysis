@@ -83,7 +83,6 @@ function App() {
     settings: { component: SettingsPage, props: { isDark, setIsDark } },
     register: { component: Register, props: { setCurrentPage } },
     login: { component: Login, props: { setCurrentPage } },
-    settings: { component: SettingsPage, props: { isDark, setIsDark } },
   };
 
   const currentPageConfig = pages[currentPage];
