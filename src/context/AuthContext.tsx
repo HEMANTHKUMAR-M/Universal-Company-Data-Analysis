@@ -9,6 +9,9 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   updateProfile,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from 'firebase/auth';
 import {
   addDoc,
@@ -33,6 +36,7 @@ type AuthContextType = {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateProfileInfo: (displayName: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -170,18 +174,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await sendPasswordResetEmail(auth, email);
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) {
+      throw new Error('No authenticated user available to change password.');
+    }
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updatePassword(auth.currentUser, newPassword);
+    await logActivity('Password changed', auth.currentUser);
+  };
+
   const updateProfileInfo = async (displayName: string) => {
     if (!auth.currentUser) throw new Error('No authenticated user');
     const currentUser = auth.currentUser;
     await updateProfile(currentUser, { displayName });
     const profileRef = doc(db, 'users', currentUser.uid);
     await setDoc(profileRef, { displayName }, { merge: true });
-    setUser({ ...currentUser } as User);
+    await currentUser.reload();
+    setUser(auth.currentUser);
     await logActivity('Updated profile information', currentUser);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, role, register, login, loginWithGoogle, logout, resetPassword, updateProfileInfo }}>
+    <AuthContext.Provider value={{ user, loading, role, register, login, loginWithGoogle, logout, resetPassword, changePassword, updateProfileInfo }}>
       {children}
     </AuthContext.Provider>
   );

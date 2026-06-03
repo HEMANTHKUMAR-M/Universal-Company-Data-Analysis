@@ -12,6 +12,8 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
   const [selectedSection, setSelectedSection] = useState('general');
   const [statusMessage, setStatusMessage] = useState('');
   const [showSavedPopup, setShowSavedPopup] = useState(false);
+  const [savedPopupTitle, setSavedPopupTitle] = useState('Saved successfully');
+  const [savedPopupText, setSavedPopupText] = useState('');
   const [settings, setSettings] = useState({
     notifications: true,
     emailAlerts: true,
@@ -21,8 +23,11 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
     twoFactorEnabled: false,
   });
   const [accountName, setAccountName] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const { fileName, headers, cleanedRecords, hasData, clearData } = useDataset();
-  const { user, role, resetPassword, updateProfileInfo } = useAuth();
+  const { user, role, resetPassword, changePassword, updateProfileInfo } = useAuth();
 
   useEffect(() => {
     if (user?.displayName) {
@@ -57,10 +62,43 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
       await updateProfileInfo(nextName);
       setAccountName(nextName);
       setStatusMessage('Account changes saved successfully.');
+      setSavedPopupTitle('Profile updated successfully');
+      setSavedPopupText(`Profile updated to "${nextName}"`);
       setShowSavedPopup(true);
       setTimeout(() => setShowSavedPopup(false), 3200);
     } catch (error: any) {
       setStatusMessage(error?.message || 'Failed to save account changes.');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.email) {
+      setStatusMessage('Your email address is not available.');
+      return;
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setStatusMessage('Please enter all password fields.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setStatusMessage('New password and confirmation do not match.');
+      return;
+    }
+
+    try {
+      await changePassword(currentPassword, newPassword);
+      setStatusMessage('Your password has been updated successfully.');
+      setSavedPopupTitle('Password updated successfully');
+      setSavedPopupText('Your password has been changed.');
+      setShowSavedPopup(true);
+      setTimeout(() => setShowSavedPopup(false), 3200);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      setStatusMessage(error?.message || 'Unable to update your password.');
     }
   };
 
@@ -114,8 +152,8 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
               ✓
             </div>
             <div>
-              <p className="font-semibold text-slate-900 dark:text-slate-100">Saved successfully</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Profile updated to "{accountName}"</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{savedPopupTitle}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{savedPopupText}</p>
             </div>
           </div>
         </div>
@@ -374,39 +412,81 @@ const SettingsPage: React.FC<SettingsProps> = ({ isDark, setIsDark }) => {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Security</h2>
             
             <div className="space-y-4">
-              <button
-                type="button"
-                onClick={handlePasswordReset}
-                className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-              >
-                <p className="font-medium text-gray-900 dark:text-white">Change Password</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Send a password reset email to your account.</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleToggleTwoFactor}
-                className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{settings.twoFactorEnabled ? '2FA is enabled for your account.' : 'Enable 2FA for extra security.'}</p>
-                  </div>
-                  <span className={`text-sm font-semibold ${settings.twoFactorEnabled ? 'text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {settings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password</label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="input-field"
+                    placeholder="Enter current password"
+                  />
                 </div>
-              </button>
 
-              <button
-                type="button"
-                onClick={handleActiveSessions}
-                className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-              >
-                <p className="font-medium text-gray-900 dark:text-white">Active Sessions</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Refresh session status and review active device access.</p>
-              </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="input-field"
+                    placeholder="Enter new password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="input-field"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleChangePassword}
+                  className="btn-primary w-full"
+                >
+                  Update Password
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  className="btn-secondary w-full"
+                >
+                  Send Password Reset Email
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleTwoFactor}
+                  className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{settings.twoFactorEnabled ? '2FA is enabled for your account.' : 'Enable 2FA for extra security.'}</p>
+                    </div>
+                    <span className={`text-sm font-semibold ${settings.twoFactorEnabled ? 'text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {settings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleActiveSessions}
+                  className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                >
+                  <p className="font-medium text-gray-900 dark:text-white">Active Sessions</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Refresh session status and review active device access.</p>
+                </button>
+              </div>
             </div>
           </div>
           )}
