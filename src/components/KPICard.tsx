@@ -22,9 +22,9 @@ const KPICard: React.FC<KPICardProps> = ({
   suffix = '',
 }) => {
   return (
-    <div className={`kpi-card bg-gradient-to-br ${bgColor} relative overflow-hidden group`}>
+    <div className={`kpi-card bg-gradient-to-br ${bgColor} relative overflow-hidden group transition-all duration-300 hover:shadow-xl`}>
       {/* Background decoration */}
-      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white opacity-10 rounded-full group-hover:scale-150 transition-transform duration-300"></div>
+      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white/15 rounded-full group-hover:scale-150 transition-transform duration-300" />
 
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-4">
